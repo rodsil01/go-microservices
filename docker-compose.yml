@@ -1,0 +1,82 @@
+version: '3.3'
+
+services:
+  db:
+    image: mysql/mysql-server:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 'admin'
+      MYSQL_ROOT_HOST: '%'
+    ports:
+      - '3307:3306'
+    volumes:
+      - ./initdb:/docker-entrypoint-initdb.d
+    container_name: mysql
+    networks:
+      - solutions-network
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: 'rabbitmq'
+    ports:
+      - 5672:5672
+      - 15672:15672
+    volumes:
+      - ~/.docker-conf/rabbitmq/data/:/var/lib/rabbitmq/
+      - ~/.docker-conf/rabbitmq/log/:/var/log/rabbitmq
+    networks:
+      - solutions-network
+  reservations-service:
+    build:
+      context: .
+      dockerfile: ./reservations/reservations.dockerfile
+    restart: always
+    ports:
+      - "8080:80"
+    container_name: reservations-service
+    depends_on:
+      - db
+      - rabbitmq
+    environment:
+      SERVER_ADDRESS: '0.0.0.0'
+      SERVER_PORT: '80'
+      DB_USER: 'root'
+      DB_PASSWORD: 'admin'
+      DB_ADDRESS: 'db'
+      DB_PORT: '3306'
+      DB_NAME: 'apuesta_total_reservations?parseTime=true'
+      RABBIT_MQ_USERNAME: 'guest'
+      RABBIT_MQ_PASSWORD: 'guest'
+      RABBIT_MQ_HOST: 'rabbitmq'
+      RABBIT_MQ_PORT: '5672'
+      RABBIT_MQ_VHOST: ''
+    networks:
+      - solutions-network
+  baggage-service:
+    build:
+      context: .
+      dockerfile: ./baggage/baggage.dockerfile
+    restart: always
+    ports:
+      - "8081:80"
+    container_name: baggage-service
+    depends_on:
+      - db
+      - rabbitmq
+    environment:
+      SERVER_ADDRESS: '0.0.0.0'
+      SERVER_PORT: '80'
+      DB_USER: 'root'
+      DB_PASSWORD: 'admin'
+      DB_ADDRESS: 'db'
+      DB_PORT: '3306'
+      DB_NAME: 'apuesta_total_baggage?parseTime=true'
+      RABBIT_MQ_USERNAME: 'guest'
+      RABBIT_MQ_PASSWORD: 'guest'
+      RABBIT_MQ_HOST: 'rabbitmq'
+      RABBIT_MQ_PORT: '5672'
+      RABBIT_MQ_VHOST: ''
+    networks:
+      - solutions-network
+networks:
+  solutions-network:
+    driver: bridge
